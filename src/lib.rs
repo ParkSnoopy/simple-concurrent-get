@@ -1,5 +1,5 @@
 use std::sync::{ Arc, RwLock };
-use futures::StreamExt;
+use futures_util::stream::{ StreamExt as _ };
 
 
 
@@ -20,7 +20,7 @@ where
         )
     ));
 
-    let bodies = futures::stream::iter(fetch_urls)
+    let bodies = futures_util::stream::iter(fetch_urls)
         .map(|url| {
             async move {
                 get(url).await
