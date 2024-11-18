@@ -11,10 +11,10 @@ categories  = ["network-programming", "web-programming", "concurrency"]
 keywords    = ["concurrent", "http", "get", "request"]
 
 [dependencies]
-ehttp = { version = "0.5.0", features = ["native-async"] }
+ehttp       = { version = "0.5.0", features = ["native-async"] }
 futures-util = "0.3.31"
 
 [dev-dependencies]
-itertools = "0.13.0"
-scraper = "0.21.0"
-tokio = { version = "1.41.1", features = ["macros", "rt-multi-thread"] }
+itertools   = "0.13.0"
+scraper     = "0.21.0"
+tokio       = { version = "1.41.1", features = ["macros", "rt-multi-thread"] }
