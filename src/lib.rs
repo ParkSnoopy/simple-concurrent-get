@@ -8,17 +8,13 @@ async fn get<S: AsRef<str>>(url: S) -> ehttp::Result<ehttp::Response> {
     ehttp::fetch_async(request).await
 }
 
-pub async fn concurrent_get<I,S>(fetch_urls: I, concurrent: usize) -> Arc<RwLock<Vec<ehttp::Result<ehttp::Response>>>>
+pub async fn concurrent_get<I,S>(fetch_urls: I, concurrent: usize) -> Vec<ehttp::Result<ehttp::Response>>
 where
     S: AsRef<str>,
     I: IntoIterator<Item=S>,
 {
     // Initialize Response Container ( with initial capacity of 10x concurrent )
-    let results = Arc::new(RwLock::new(
-        Vec::with_capacity(
-            concurrent*10
-        )
-    ));
+    let results = Arc::new(RwLock::new(Vec::new()));
 
     let bodies = futures_util::stream::iter(fetch_urls)
         .map(|url| {
@@ -37,8 +33,13 @@ where
         })
         .await;
 
+    let results = Arc::try_unwrap(results).unwrap();
+    let results = results.into_inner().unwrap();
+
     results
 }
+
+
 
 #[cfg(test)]
 mod tests {
@@ -65,9 +66,6 @@ mod tests {
 
         let results: Vec<(u64, String)> = crate::concurrent_get(fetch_urls_iter, CONCURRENT)
             .await
-            .read()
-            .unwrap()
-            .clone()
             .into_iter()
             .map(|result| {
                 let resp = result.unwrap();
