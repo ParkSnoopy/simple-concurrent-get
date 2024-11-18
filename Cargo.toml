@@ -1,6 +1,6 @@
 [package]
 name            = "simple-concurrent-get"
-version         = "0.1.2"
+version         = "0.1.3"
 edition         = "2021"
 license         = "GPL-3.0"
 authors         = ["ParkSnoopy <sunwoo2539@gmail.com>"]
@@ -12,10 +12,10 @@ categories      = ["network-programming", "web-programming", "concurrency"]
 keywords        = ["concurrent", "http", "get", "request"]
 
 [dependencies]
-ehttp       = { version = "0.5.0", features = ["native-async"] }
-futures-util = "0.3.31"
+ehttp           = { version = "0.5.0", features = ["native-async"] }
+futures-util    = "0.3.31"
 
 [dev-dependencies]
-itertools   = "0.13.0"
-scraper     = "0.21.0"
-tokio       = { version = "1.41.1", features = ["macros", "rt-multi-thread"] }
+itertools       = "0.13.0"
+scraper         = "0.21.0"
+tokio           = { version = "1.41.1", features = ["macros", "rt-multi-thread"] }
