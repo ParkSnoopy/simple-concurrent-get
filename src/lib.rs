@@ -39,6 +39,46 @@ where
     results
 }
 
+pub async fn concurrent_get_foreach<I,S,F,R>(fetch_urls: I, concurrent: usize, run_for_each: F) -> Vec<Result<R, String>>
+where
+    S: AsRef<str>,
+    I: IntoIterator<Item=S>,
+    F: Copy + FnOnce(ehttp::Response) -> R,
+    R: std::fmt::Debug
+{
+    // Initialize Response Container ( with initial capacity of 10x concurrent )
+    let results = Arc::new(RwLock::new(Vec::new()));
+
+    let bodies = futures_util::stream::iter(fetch_urls)
+        .map(|url| {
+            async move {
+                get(url).await
+            }
+        })
+        .buffer_unordered(concurrent);
+
+    bodies
+        .for_each(|resp| {
+            let results = results.clone();
+            async move {
+                match resp {
+                    Ok(resp) => results
+                        .write().unwrap()
+                        .push( Ok(run_for_each(resp)) ),
+                    Err(resp) => results
+                        .write().unwrap()
+                        .push( Err(resp) )
+                }
+            }
+        })
+        .await;
+
+    let results = Arc::try_unwrap(results).unwrap();
+    let results = results.into_inner().unwrap();
+
+    results
+}
+
 
 
 #[cfg(test)]
@@ -57,7 +97,7 @@ mod tests {
     use scraper::{ Html, Selector };
 
     #[tokio::test]
-    async fn async_get_dotlan_route() {
+    async fn test_concurrent_get() {
         use itertools::Itertools;
 
         let fetch_urls_iter = TO_FETCH
@@ -71,6 +111,40 @@ mod tests {
                 let resp = result.unwrap();
                 (parse_text_into_length(resp.text().unwrap()), resp.url)
             })
+            .sorted()
+            .collect();
+
+        assert_eq!(results,
+            vec![
+                (  66, "https://evemaps.dotlan.net/route/3:Jita:Dodixie:Hek:Rens:Nisuwa"     .to_string() ),
+                (  79, "https://evemaps.dotlan.net/route/3:Amarr:Jita:Hek:Rens:Nisuwa"       .to_string() ),
+                (  86, "https://evemaps.dotlan.net/route/3:Amarr:Dodixie:Hek:Rens:Nisuwa"    .to_string() ),
+                (  87, "https://evemaps.dotlan.net/route/3:Amarr:Jita:Dodixie:Hek:Rens"      .to_string() ),
+                (  92, "https://evemaps.dotlan.net/route/3:Amarr:Jita:Dodixie:Hek:Nisuwa"    .to_string() ),
+                (  98, "https://evemaps.dotlan.net/route/3:Amarr:Jita:Dodixie:Rens:Nisuwa"   .to_string() ),
+                ( 106,"https://evemaps.dotlan.net/route/3:Amarr:Jita:Dodixie:Hek:Rens:Nisuwa".to_string() ),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_get_foreach() {
+        use itertools::Itertools;
+
+        let fetch_urls_iter = TO_FETCH
+            .iter()
+            .map(make_url_lownull);
+
+        let results: Vec<(u64, String)> = crate::concurrent_get_foreach(
+                fetch_urls_iter,
+                CONCURRENT,
+                |resp| {
+                    (parse_text_into_length(resp.text().unwrap()), resp.url)
+                }
+            )
+            .await
+            .into_iter()
+            .map(|r| r.unwrap())
             .sorted()
             .collect();
 
