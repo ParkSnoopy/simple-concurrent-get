@@ -1,58 +1,29 @@
-use std::sync::{ Arc, RwLock };
+use reqwest::{ Client, Response };
 use futures_util::stream::{ StreamExt as _ };
 
+use std::sync::{ Arc, RwLock };
+
+const USER_AGENT: &str = "simple-concurrent-get/v0.2";
 
 
-async fn get<S: AsRef<str>>(url: S) -> ehttp::Result<ehttp::Response> {
-    let request = ehttp::Request::get(url.as_ref());
-    ehttp::fetch_async(request).await
-}
 
-pub async fn concurrent_get<I,S>(fetch_urls: I, concurrent: usize) -> Vec<ehttp::Result<ehttp::Response>>
+pub async fn concurrent_get<I,S>(fetch_urls: I, concurrent: usize) -> Vec<reqwest::Result<Response>>
 where
-    S: AsRef<str>,
+    S: reqwest::IntoUrl,
     I: IntoIterator<Item=S>,
 {
-    // Initialize Response Container ( with initial capacity of 10x concurrent )
+    let client: Arc<Client> = Arc::new(Client::builder()
+        .user_agent(USER_AGENT)
+        .build()
+        .unwrap());
+
     let results = Arc::new(RwLock::new(Vec::new()));
 
     let bodies = futures_util::stream::iter(fetch_urls)
         .map(|url| {
+            let client = client.clone();
             async move {
-                get(url).await
-            }
-        })
-        .buffer_unordered(concurrent);
-
-    bodies
-        .for_each(|resp| {
-            let results_cloned = results.clone();
-            async move {
-                results_cloned.write().unwrap().push(resp);
-            }
-        })
-        .await;
-
-    let results = Arc::try_unwrap(results).unwrap();
-    let results = results.into_inner().unwrap();
-
-    results
-}
-
-pub async fn concurrent_get_foreach<I,S,F,R>(fetch_urls: I, concurrent: usize, run_for_each: F) -> Vec<Result<R, String>>
-where
-    S: AsRef<str>,
-    I: IntoIterator<Item=S>,
-    F: Copy + FnOnce(ehttp::Response) -> R,
-    R: std::fmt::Debug
-{
-    // Initialize Response Container ( with initial capacity of 10x concurrent )
-    let results = Arc::new(RwLock::new(Vec::new()));
-
-    let bodies = futures_util::stream::iter(fetch_urls)
-        .map(|url| {
-            async move {
-                get(url).await
+                client.get(url).send().await
             }
         })
         .buffer_unordered(concurrent);
@@ -61,22 +32,49 @@ where
         .for_each(|resp| {
             let results = results.clone();
             async move {
-                match resp {
-                    Ok(resp) => results
-                        .write().unwrap()
-                        .push( Ok(run_for_each(resp)) ),
-                    Err(resp) => results
-                        .write().unwrap()
-                        .push( Err(resp) )
-                }
+                results.write().unwrap().push(resp);
             }
         })
         .await;
 
-    let results = Arc::try_unwrap(results).unwrap();
-    let results = results.into_inner().unwrap();
+    Arc::try_unwrap(results).unwrap().into_inner().unwrap()
+}
 
-    results
+pub async fn concurrent_get_foreach<I,S,F,R>(fetch_urls: I, concurrent: usize, run_for_each: F) -> Vec<R>
+where
+    S: reqwest::IntoUrl,
+    I: IntoIterator<Item=S>,
+    F: Copy + FnOnce(reqwest::Result<Response>) -> R,
+    R: std::fmt::Debug
+{
+    let client: Arc<Client> = Arc::new(Client::builder()
+        .user_agent(USER_AGENT)
+        .build()
+        .unwrap());
+
+    let results = Arc::new(RwLock::new(Vec::new()));
+
+    let bodies = futures_util::stream::iter(fetch_urls)
+        .map(|url| {
+            let client = client.clone();
+            async move {
+                run_for_each(
+                    client.get(url).send().await
+                )
+            }
+        })
+        .buffer_unordered(concurrent);
+
+    bodies
+        .for_each(|resp| {
+            let results = results.clone();
+            async move {
+                results.write().unwrap().push(resp);
+            }
+        })
+        .await;
+
+    Arc::try_unwrap(results).unwrap().into_inner().unwrap()
 }
 
 
@@ -109,7 +107,12 @@ mod tests {
             .into_iter()
             .map(|result| {
                 let resp = result.unwrap();
-                (parse_text_into_length(resp.text().unwrap()), resp.url)
+                let url: String = resp.url().to_string();
+                let body_test = futures_executor::block_on(async{ resp.text().await }).unwrap();
+                (
+                    parse_text_into_length(body_test),
+                    url,
+                )
             })
             .sorted()
             .collect();
@@ -138,13 +141,18 @@ mod tests {
         let results: Vec<(u64, String)> = crate::concurrent_get_foreach(
                 fetch_urls_iter,
                 CONCURRENT,
-                |resp| {
-                    (parse_text_into_length(resp.text().unwrap()), resp.url)
+                |result| {
+                    let resp = result.unwrap();
+                    let url: String = resp.url().to_string();
+                    let body_test = futures_executor::block_on(async{ resp.text().await }).unwrap();
+                    (
+                        parse_text_into_length(body_test),
+                        url,
+                    )
                 }
             )
             .await
             .into_iter()
-            .map(|r| r.unwrap())
             .sorted()
             .collect();
 
