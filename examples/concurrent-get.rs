@@ -13,8 +13,12 @@ async fn main() {
         .await
         .into_iter()
         .map(|result| match result {
-            Ok(response) => println!("{}", response.url),
-            Err(e) => eprintln!("{:?}", e),
+            Ok(response) => {
+                let url = response.url().to_owned();
+                let bytes = futures_executor::block_on(async{ response.bytes().await }).unwrap();
+                println!("Successfully got '{}' with '{}' bytes of content", url, bytes.len())
+            },
+            Err(e) => eprintln!("{}", e),
         })
         .collect();
 }
