@@ -2,7 +2,7 @@ use std::sync::{
     mpsc::channel,
 };
 
-const CONCURRENT: usize = 1000;
+const CONCURRENT: usize = 150;
 // successfully tested '33000' requests
 
 
@@ -48,4 +48,6 @@ async fn main() {
             false => eprintln!("Fetch failed after '{fetch_counter}' successful fetches"),
         };
     }
+
+    println!("'{}' requests handled", CONCURRENT*CONCURRENT);
 }
