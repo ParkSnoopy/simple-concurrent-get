@@ -7,7 +7,9 @@ use std::sync::mpsc::{
     channel,
 };
 
-use crate::config;
+use crate::{
+    client,
+};
 
 
 
@@ -17,10 +19,7 @@ where
     I: IntoIterator<Item=S>,
     F: Copy + FnOnce(reqwest::Result<Response>) -> R,
 {
-    let client: Arc<Client> = Arc::new(Client::builder()
-        .user_agent(config::USER_AGENT)
-        .build()
-        .unwrap());
+    let client: Arc<Client> = Arc::new(client::build_preset());
 
     let (sender, receiver) = channel();
 
@@ -44,5 +43,6 @@ where
         })
         .await;
 
+    drop(sender);
     receiver.into_iter()
 }

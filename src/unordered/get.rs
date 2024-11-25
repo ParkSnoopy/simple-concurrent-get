@@ -8,7 +8,7 @@ use std::sync::mpsc::{
 };
 
 use crate::{
-    config,
+    client,
 };
 
 
@@ -18,14 +18,11 @@ where
     I: IntoIterator<Item=S>,
     S: reqwest::IntoUrl,
 {
-    let client: Arc<Client> = Arc::new(Client::builder()
-        .user_agent(config::USER_AGENT)
-        .build()
-        .unwrap());
+    let client: Arc<Client> = Arc::new(client::build_preset());
 
     let (sender, receiver) = channel();
 
-    let bodies = futures_util::stream::iter(fetch_urls)
+    let results = futures_util::stream::iter(fetch_urls)
         .map(|url| {
             let client = client.clone();
             async move {
@@ -34,7 +31,7 @@ where
         })
         .buffer_unordered(concurrent);
 
-    bodies
+    results
         .for_each(|resp| {
             let sender = sender.clone();
             async move {
@@ -43,5 +40,6 @@ where
         })
         .await;
 
+    drop(sender);
     receiver.into_iter()
 }

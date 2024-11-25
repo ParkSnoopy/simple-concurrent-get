@@ -8,7 +8,7 @@ use std::sync::mpsc::{
 };
 
 use crate::{
-    config,
+    client,
 };
 
 
@@ -18,10 +18,7 @@ where
     I: IntoIterator<Item=S>,
     S: reqwest::IntoUrl,
 {
-    let client: Arc<Client> = Arc::new(Client::builder()
-        .user_agent(config::USER_AGENT)
-        .build()
-        .unwrap());
+    let client: Arc<Client> = Arc::new(client::build_preset());
 
     let (sender, receiver) = channel();
 
@@ -43,5 +40,6 @@ where
         })
         .await;
 
+    drop(sender);
     receiver.into_iter()
 }
