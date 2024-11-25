@@ -65,6 +65,7 @@
 
 
 mod config;
+mod client;
 
 pub mod unordered;
 pub mod ordered;
