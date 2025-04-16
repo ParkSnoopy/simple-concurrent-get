@@ -2,7 +2,7 @@ use std::sync::{
     mpsc::channel,
 };
 
-const CONCURRENT: usize = 150;
+const CONCURRENT: usize = 10;
 // successfully tested '33000' requests
 
 
