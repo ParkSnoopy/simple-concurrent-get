@@ -1,6 +1,6 @@
 [package]
 name            = "simple-concurrent-get"
-version         = "0.3.1-r2504"
+version         = "0.3.1"
 edition         = "2021"
 license         = "GPL-3.0"
 authors         = ["ParkSnoopy <sunwoo2539@gmail.com>"]
@@ -16,7 +16,7 @@ reqwest = { version = "0.12.15", features = ["deflate", "gzip"] }
 futures-util = "0.3.31"
 
 [dev-dependencies]
-tokio = { version = "1.44.2", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.45.0", features = ["macros", "rt-multi-thread"] }
 futures-executor = "0.3.31"
 itertools = "0.14.0"
 scraper = "0.23.1"
